@@ -1,0 +1,26 @@
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  name: csi.test.k8s.io
+spec:
+  volumeLifecycleModes:
+  - Persistent
+  - Ephemeral
+  attachRequired: true
+  podInfoOnMount: true
+  fsGroupPolicy: File
+
+---
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: csi-test-storage
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: csi.test.k8s.io
+allowVolumeExpansion: false
+volumeBindingMode: WaitForFirstConsumer
+
+---
+

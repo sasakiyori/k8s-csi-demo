@@ -1,0 +1,123 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-daemonset-sa
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: my-daemonset-cr
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: my-daemonset-crb
+subjects:
+  - kind: ServiceAccount
+    name: my-daemonset-sa
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: my-daemonset-cr
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: csi-test-server
+spec:
+  selector:
+    matchLabels:
+      app: csi-test-server
+  template:
+    metadata:
+      labels:
+        app: csi-test-server
+    spec:
+      serviceAccount: my-daemonset-sa
+      containers:
+        # controller
+        - name: csi-provisioner
+          image: registry.k8s.io/sig-storage/csi-provisioner:v3.6.2
+          args:
+            - -v=5
+            - --csi-address=/csi/csi.sock
+            # minimal demo use the daemonset in a single-node k8s cluster
+            - node-deployment=true
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+
+        # controller
+        - name: csi-attacher
+          image: registry.k8s.io/sig-storage/csi-attacher:v4.4.2
+          args:
+            - -v=5
+            - --csi-address=/csi/csi.sock
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+
+        # node
+        - name: node-driver-registrar
+          image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.9.1
+          args:
+            - --v=5
+            - --csi-address=/csi/csi.sock
+            - --kubelet-registration-path=/var/lib/kubelet/plugins/csi.test.k8s.io/csi.sock
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+            - mountPath: /registration
+              name: registration-dir
+
+        - name: csi-test
+          image: csi_test:0.0.1
+          env:
+          - name: CSI_ENDPOINT
+            value: /csi/csi.sock
+          securityContext:
+            privileged: true
+          volumeMounts:
+          - mountPath: /csi
+            name: socket-dir
+          - mountPath: /var/lib/kubelet/plugins
+            name: plugins-mount-dir
+            mountPropagation: "Bidirectional"
+          - mountPath: /var/lib/kubelet/pods
+            name: pods-mount-dir
+            # "Bidirectional" must be set so that csi-server can create mount directory
+            mountPropagation: "Bidirectional"
+      volumes:
+        - name: registration-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins_registry
+            type: DirectoryOrCreate
+        - name: socket-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/csi.test.k8s.io
+            type: DirectoryOrCreate
+        - name: plugins-mount-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins
+            type: Directory
+        - name: pods-mount-dir
+          hostPath:
+            path: /var/lib/kubelet/pods
+            type: DirectoryOrCreate
