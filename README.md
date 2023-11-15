@@ -25,3 +25,10 @@ Figure 3: Headless Plugin deployment, only the CO Node hosts run
 Plugins. A unified Plugin component supplies both the Controller
 Service and Node Service.
 ```
+
+## references
+
+- <https://github.com/container-storage-interface/spec/blob/master/spec.md>
+- <https://kubernetes.io/docs/concepts/storage/volumes/#csi>
+- <https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/>
+- <https://github.com/kubernetes-csi/csi-driver-host-path/tree/master>
