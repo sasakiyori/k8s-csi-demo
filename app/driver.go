@@ -12,10 +12,11 @@ import (
 
 type Driver struct {
 	sync.Mutex
-	addr   string
-	name   string
-	nodeId string
-	server *grpc.Server
+	addr    string
+	dataDir string
+	name    string
+	nodeId  string
+	server  *grpc.Server
 }
 
 func NewDriver() *Driver {
@@ -23,10 +24,15 @@ func NewDriver() *Driver {
 	if endpoint == "" {
 		endpoint = "/csi/csi.sock"
 	}
+	dataDir := os.Getenv("CSI_DATADIR")
+	if dataDir == "" {
+		dataDir = "/csi-data-dir"
+	}
 	return &Driver{
-		addr:   endpoint,
-		name:   "csi.test.k8s.io",
-		nodeId: uuid.NewString(),
+		addr:    endpoint,
+		dataDir: dataDir,
+		name:    "csi.test.k8s.io",
+		nodeId:  uuid.NewString(),
 	}
 }
 

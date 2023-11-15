@@ -47,30 +47,30 @@ spec:
       serviceAccount: my-daemonset-sa
       containers:
         # controller
-        - name: csi-provisioner
-          image: registry.k8s.io/sig-storage/csi-provisioner:v3.6.2
-          args:
-            - -v=5
-            - --csi-address=/csi/csi.sock
-            # minimal demo use the daemonset in a single-node k8s cluster
-            - node-deployment=true
-          securityContext:
-            privileged: true
-          volumeMounts:
-            - mountPath: /csi
-              name: socket-dir
+        # - name: csi-provisioner
+        #   image: registry.k8s.io/sig-storage/csi-provisioner:v3.6.2
+        #   args:
+        #     - -v=5
+        #     - --csi-address=/csi/csi.sock
+        #     # minimal demo use the daemonset in a single-node k8s cluster
+        #     - node-deployment=true
+        #   securityContext:
+        #     privileged: true
+        #   volumeMounts:
+        #     - mountPath: /csi
+        #       name: socket-dir
 
         # controller
-        - name: csi-attacher
-          image: registry.k8s.io/sig-storage/csi-attacher:v4.4.2
-          args:
-            - -v=5
-            - --csi-address=/csi/csi.sock
-          securityContext:
-            privileged: true
-          volumeMounts:
-            - mountPath: /csi
-              name: socket-dir
+        # - name: csi-attacher
+        #   image: registry.k8s.io/sig-storage/csi-attacher:v4.4.2
+        #   args:
+        #     - -v=5
+        #     - --csi-address=/csi/csi.sock
+        #   securityContext:
+        #     privileged: true
+        #   volumeMounts:
+        #     - mountPath: /csi
+        #       name: socket-dir
 
         # node
         - name: node-driver-registrar
@@ -97,13 +97,15 @@ spec:
           volumeMounts:
           - mountPath: /csi
             name: socket-dir
-          - mountPath: /var/lib/kubelet/plugins
-            name: plugins-mount-dir
-            mountPropagation: "Bidirectional"
+          # - mountPath: /var/lib/kubelet/plugins
+          #   name: plugins-mount-dir
+          #   mountPropagation: "Bidirectional"
           - mountPath: /var/lib/kubelet/pods
             name: pods-mount-dir
             # "Bidirectional" must be set so that csi-server can create mount directory
             mountPropagation: "Bidirectional"
+          - mountPath: /csi-data-dir
+            name: csi-data-dir
       volumes:
         - name: registration-dir
           hostPath:
@@ -113,11 +115,15 @@ spec:
           hostPath:
             path: /var/lib/kubelet/plugins/csi.test.k8s.io
             type: DirectoryOrCreate
-        - name: plugins-mount-dir
-          hostPath:
-            path: /var/lib/kubelet/plugins
-            type: Directory
+        # - name: plugins-mount-dir
+        #   hostPath:
+        #     path: /var/lib/kubelet/plugins
+        #     type: Directory
         - name: pods-mount-dir
           hostPath:
             path: /var/lib/kubelet/pods
+            type: DirectoryOrCreate
+        - name: csi-data-dir
+          hostPath:
+            path: /var/lib/csi-data-dir
             type: DirectoryOrCreate

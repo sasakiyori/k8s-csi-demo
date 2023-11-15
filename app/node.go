@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
@@ -112,6 +113,10 @@ func (d *Driver) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeS
 	}, nil
 }
 
+func (d *Driver) getPath(volumeId string) string {
+	return filepath.Join(d.dataDir, volumeId)
+}
+
 func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 	fmt.Println("NodePublishVolume:", req)
 	switch req.GetVolumeCapability().GetAccessType().(type) {
@@ -125,17 +130,30 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	d.Lock()
 	defer d.Unlock()
 
-	volume, exist := volumeMap.Load(req.VolumeId)
-	if !exist {
-		return nil, status.Error(codes.NotFound, "Volume not found")
+	// volume, exist := volumeMap.Load(req.VolumeId)
+	// if !exist {
+	// 	return nil, status.Error(codes.NotFound, "Volume not found")
+	// }
+	// vol := volume.(*Volume)
+	// if vol.publishPath != "" {
+	// 	return nil, status.Error(codes.AlreadyExists, "Volume already published")
+	// }
+	// if vol.stagePath != req.StagingTargetPath {
+	// 	return nil, status.Error(codes.InvalidArgument, "StagingTargetPath does not match")
+	// }
+
+	path := d.getPath(req.VolumeId)
+	if err := os.MkdirAll(path, 0755); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
 	}
-	vol := volume.(*Volume)
-	if vol.publishPath != "" {
-		return nil, status.Error(codes.AlreadyExists, "Volume already published")
+
+	vol := &Volume{
+		path:        path,
+		attached:    true,
+		stagePath:   path,
+		publishPath: "",
 	}
-	if vol.stagePath != req.StagingTargetPath {
-		return nil, status.Error(codes.InvalidArgument, "StagingTargetPath does not match")
-	}
+	volumeMap.Store(req.VolumeId, vol)
 
 	mounter := mount.New("")
 	notMount, err := mount.IsNotMountPoint(mounter, req.TargetPath)
@@ -155,7 +173,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 
 	mnt := req.GetVolumeCapability().GetMount()
 	options := append(mnt.MountFlags, "bind")
-	if err = mounter.Mount(req.StagingTargetPath, req.TargetPath, mnt.FsType, options); err != nil {
+	if err = mounter.Mount(vol.path, req.TargetPath, mnt.FsType, options); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
@@ -189,6 +207,16 @@ func (d *Driver) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublish
 		if err = mounter.Unmount(req.TargetPath); err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}
+	}
+
+	// mount dir
+	if err = os.RemoveAll(req.TargetPath); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// data dir
+	if err = os.RemoveAll(vol.path); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	vol.publishPath = ""
