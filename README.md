@@ -26,6 +26,11 @@ Plugins. A unified Plugin component supplies both the Controller
 Service and Node Service.
 ```
 
+## branches
+
+- [main](https://github.com/sasakiyori/k8s-csi-demo/tree/main): Persistent mode. `Controller` and `Node` are both needed.
+- [ephemeral](https://github.com/sasakiyori/k8s-csi-demo/tree/ephemeral): Ephemeral mode ([emptyDir](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir) like). Only `Node` is needed.
+
 ## references
 
 - <https://github.com/container-storage-interface/spec/blob/master/spec.md>
